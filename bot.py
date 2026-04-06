@@ -81,8 +81,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "1. Скопируйте URL видео с YouTube\n"
         "2. Вставьте его сюда\n"
         "3. Я скачаю и отправлю его вам\n\n"
-        "Поддерживаемые форматы: MP4 (видео)\n"
-        "Максимальный размер файла: 50МБ",
+        "Поддерживаемые форматы: MP4 (видео)",
         parse_mode='Markdown'
     )
 

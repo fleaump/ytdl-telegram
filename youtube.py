@@ -10,9 +10,6 @@ import yt_dlp
 
 logger = logging.getLogger(__name__)
 
-# Maximum file size Telegram allows (50MB for bots)
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-
 # Download directory
 DOWNLOAD_DIR = Path("/tmp/downloads")
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -100,12 +97,6 @@ class YouTubeDownloader(VideoDownloader):
             filepath = Path(filename)
 
             file_size = os.path.getsize(filepath)
-            if file_size > MAX_FILE_SIZE:
-                os.remove(filepath)
-                raise ValueError(
-                    f"Файл слишком большой ({file_size / (1024*1024):.1f}МБ). "
-                    f"Максимальный размер 50МБ."
-                )
 
             return VideoInfo(
                 title=info.get('title', 'Видео'),
