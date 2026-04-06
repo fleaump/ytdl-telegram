@@ -14,6 +14,7 @@ Telegram-бот, который скачивает видео с YouTube и от
 
 - Docker и Docker Compose
 - Токен Telegram-бота (получите у [@BotFather](https://t.me/botfather))
+- **Для отправки файлов > 50МБ**: `TELEGRAM_API_ID` и `TELEGRAM_API_HASH` с https://my.telegram.org
 
 ## Установка
 
@@ -23,7 +24,16 @@ Telegram-бот, который скачивает видео с YouTube и от
 2. Отправьте `/newbot` и следуйте инструкциям
 3. Скопируйте полученный токен бота
 
-### 2. Настройте окружение
+### 2. Получите API ID и Hash (для файлов > 50МБ)
+
+1. Перейдите на https://my.telegram.org
+2. Войдите с вашим номером телефона
+3. Перейдите в **API development tools**
+4. Создайте новое приложение и скопируйте `App api_id` и `App api_hash`
+
+> **Зачем это нужно:** Локальный сервер Telegram Bot API позволяет отправлять файлы до 2000МБ вместо 50МБ. Для его работы нужны ваши `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`.
+
+### 3. Настройте окружение
 
 Создайте файл `.env` в корне проекта:
 
@@ -31,6 +41,10 @@ Telegram-бот, который скачивает видео с YouTube и от
 TELEGRAM_BOT_TOKEN=ваш_токен_бота
 ADMIN_CHAT_ID=ваш_chat_id
 ACCESS_PASSWORD=ваш_секретный_пароль
+
+# Для отправки файлов > 50МБ (локальный Bot API сервер):
+TELEGRAM_API_ID=ваш_api_id
+TELEGRAM_API_HASH=ваш_api_hash
 ```
 
 | Переменная | Описание |
@@ -38,16 +52,20 @@ ACCESS_PASSWORD=ваш_секретный_пароль
 | `TELEGRAM_BOT_TOKEN` | Токен бота от @BotFather |
 | `ADMIN_CHAT_ID` | Ваш chat_id — полный доступ к управлению |
 | `ACCESS_PASSWORD` | Пароль для команды `/me` (необязательно) |
+| `TELEGRAM_API_ID` | Ваш API ID с my.telegram.org (для файлов > 50МБ) |
+| `TELEGRAM_API_HASH` | Ваш API Hash с my.telegram.org (для файлов > 50МБ) |
 
 > **Как узнать свой chat_id:** отправьте сообщение боту [@userinfobot](https://t.me/userinfobot)
 
-### 3. Запустите через Docker Compose
+### 4. Запустите через Docker Compose
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. Запустите бота
+При запуске автоматически поднимется **локальный Telegram Bot API сервер**, который позволяет отправлять файлы до **2000МБ (2ГБ)**.
+
+### 5. Запустите бота
 
 Откройте Telegram, найдите вашего бота и отправьте `/start` или вставьте ссылку на YouTube.
 
@@ -86,9 +104,9 @@ docker-compose up -d
 
 ## Ограничения
 
-- **Максимальный размер файла**: 2000МБ (ограничение API ботов Telegram)
+- **Максимальный размер файла**: 2000МБ (2ГБ) — с локальным Bot API сервером
 - **Формат**: только видео MP4
-- Бот уведомит вас, если видео превысит лимит размера
+- Локальный Bot API сервер требует `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`
 
 ## Архитектура
 

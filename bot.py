@@ -83,7 +83,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "1. Скопируйте URL видео с YouTube\n"
         "2. Вставьте его сюда\n"
         "3. Я скачаю и отправлю его вам\n\n"
-        "Поддерживаемые форматы: MP4 (видео)",
+        "Поддерживаемые форматы: MP4 (видео)\n"
+        "Максимальный размер файла: 2000МБ (2ГБ)",
         parse_mode='Markdown'
     )
 
@@ -247,15 +248,29 @@ def main():
     """Start the bot"""
     logger.info("Starting YouTube Downloader Bot...")
 
-    # Configure request with longer timeouts for large file uploads
-    request = HTTPXRequest(
-        connect_timeout=300,
-        read_timeout=300,
-        write_timeout=300,
-        pool_timeout=300
-    )
+    # Use local Bot API server if configured (allows files up to 2000MB)
+    local_api_url = os.environ.get('LOCAL_BOT_API_URL')
 
-    application = Application.builder().token(BOT_TOKEN).request(request).build()
+    if local_api_url:
+        logger.info(f"Using local Bot API server: {local_api_url}")
+        # Configure with local Bot API server
+        request = HTTPXRequest(
+            connect_timeout=300,
+            read_timeout=300,
+            write_timeout=300,
+            pool_timeout=300,
+        )
+        application = Application.builder().token(BOT_TOKEN).request(request).base_url(local_api_url).get_updates_url(local_api_url).build()
+    else:
+        logger.info("Using default Telegram Bot API (50MB file limit)")
+        # Default Telegram API - shorter timeouts are fine for smaller files
+        request = HTTPXRequest(
+            connect_timeout=30,
+            read_timeout=30,
+            write_timeout=300,
+            pool_timeout=30
+        )
+        application = Application.builder().token(BOT_TOKEN).request(request).build()
 
     # Register handlers
     application.add_handler(CommandHandler("start", start))
