@@ -2,6 +2,8 @@ import os
 import logging
 from pathlib import Path
 from telegram import Update
+from telegram.request import HTTPXRequest
+from telegram import error as tg_error
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
 from db import WhitelistDB
@@ -131,6 +133,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError as e:
         # User-friendly errors
         await progress_callback(f"❌ Ошибка: {str(e)}")
+    except tg_error.TimedOut as e:
+        logger.error(f"Telegram API timeout: {e}", exc_info=True)
+        try:
+            await progress_callback("❌ Превышено время ожидания. Попробуйте видео меньшего размера или повторите позже.")
+        except:
+            await update.message.reply_text("❌ Превышено время ожидания. Попробуйте видео меньшего размера или повторите позже.")
+    except tg_error.NetworkError as e:
+        logger.error(f"Network error: {e}", exc_info=True)
+        try:
+            await progress_callback(f"❌ Ошибка сети: {str(e)}")
+        except:
+            await update.message.reply_text(f"❌ Ошибка сети: {str(e)}")
     except Exception as e:
         logger.error(f"Error processing video: {e}", exc_info=True)
         try:
@@ -233,7 +247,15 @@ def main():
     """Start the bot"""
     logger.info("Starting YouTube Downloader Bot...")
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    # Configure request with longer timeouts for large file uploads
+    request = HTTPXRequest(
+        connect_timeout=300,
+        read_timeout=300,
+        write_timeout=300,
+        pool_timeout=300
+    )
+
+    application = Application.builder().token(BOT_TOKEN).request(request).build()
 
     # Register handlers
     application.add_handler(CommandHandler("start", start))
