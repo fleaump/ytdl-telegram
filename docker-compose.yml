@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  yt-dl-bot:
+    build: .
+    container_name: youtube-downloader-bot
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
+      - ACCESS_PASSWORD=${ACCESS_PASSWORD:-}
+    volumes:
+      - downloads:/tmp/downloads
+    restart: unless-stopped
+
+volumes:
+  downloads:
