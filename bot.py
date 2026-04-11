@@ -1,10 +1,12 @@
 import os
+import sys
+import time
 import logging
 from pathlib import Path
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.request import HTTPXRequest
 from telegram import error as tg_error
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 
 from db import WhitelistDB
 from youtube import download_manager, VideoInfo
@@ -99,59 +101,139 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
-    status_msg = await update.message.reply_text("🔍 Обрабатываю ваш запрос...")
+    status_msg = await update.message.reply_text("🔍 Получаю информацию о видео...")
+
+    try:
+        # Get video info without downloading
+        video_info = await download_manager.get_video_info(text)
+
+        # Delete status message
+        await status_msg.delete()
+
+        # Build keyboard with quality options
+        keyboard = []
+        for fmt in video_info.formats:
+            # Build button text
+            size_text = ""
+            if fmt.filesize:
+                size_mb = fmt.filesize / (1024 * 1024)
+                size_text = f" ({size_mb:.0f}МБ)"
+            
+            button_text = f"{fmt.format_note}{size_text}"
+            
+            # Callback data: format_index
+            # We'll store video info in context.user_data
+            callback_data = f"quality_{len(keyboard)}"
+            
+            keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
+
+        # Store video info for later use
+        context.user_data['pending_video'] = {
+            'url': video_info.url,
+            'title': video_info.title,
+            'formats': [(fmt.format_str, fmt.format_note) for fmt in video_info.formats]
+        }
+
+        # Send message with quality options
+        await update.message.reply_text(
+            f"📺 *{video_info.title}*\n\n"
+            f"Выберите качество видео:",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    except ValueError as e:
+        await status_msg.edit_text(f"❌ Ошибка: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error getting video info: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Ошибка: {str(e)}")
+
+
+async def handle_quality_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle quality button clicks"""
+    query = update.callback_query
+    await query.answer()
+
+    # Check access via query.message.chat_id
+    if not check_access(query.message.chat_id):
+        await query.answer("У вас нет доступа к этому боту.", show_alert=True)
+        return
+
+    # Get stored video info
+    video_data = context.user_data.get('pending_video')
+    if not video_data:
+        await query.edit_message_text("❌ Информация о видео устарела. Отправьте ссылку снова.")
+        return
+
+    # Parse quality index from callback data
+    quality_index = int(query.data.split('_')[1])
+    
+    # Get format info
+    if quality_index >= len(video_data['formats']):
+        await query.edit_message_text("❌ Неверный выбор качества.")
+        return
+
+    format_str, format_note = video_data['formats'][quality_index]
+    video_url = video_data['url']
+    video_title = video_data['title']
+
+    # Update message to show downloading progress
+    await query.edit_message_text(f"📥 Скачиваю видео в качестве {format_note}...\n\n📺 {video_title}")
 
     async def progress_callback(message: str):
         """Update progress message"""
         try:
             await context.bot.edit_message_text(
-                chat_id=update.message.chat_id,
-                message_id=status_msg.message_id,
+                chat_id=query.message.chat_id,
+                message_id=query.message.message_id,
                 text=message
             )
         except Exception as e:
             logger.warning(f"Failed to update progress: {e}")
 
     try:
-        await progress_callback("🔍 Получаю информацию о видео...")
+        # Download video with selected quality
+        await progress_callback(f"📥 Скачиваю видео в качестве {format_note}...")
 
-        video_info = await download_manager.download(text, progress_callback)
+        video_info = await download_manager.download_with_format(video_url, progress_callback, format_str)
 
         # Send the video file
-        caption = f"📺 {video_info.title}"
+        caption = f"📺 {video_title}"
         with open(video_info.filepath, 'rb') as video_file:
-            await update.message.reply_video(
+            await query.message.reply_video(
                 video=video_file,
                 caption=caption,
                 supports_streaming=True
             )
 
-        await progress_callback("✅ Видео успешно отправлено!")
+        await query.message.reply_text("✅ Видео успешно отправлено!")
 
         # Clean up
         download_manager.cleanup(video_info)
 
+        # Clear stored video info
+        context.user_data.pop('pending_video', None)
+
     except ValueError as e:
-        # User-friendly errors
-        await progress_callback(f"❌ Ошибка: {str(e)}")
+        await query.message.reply_text(f"❌ Ошибка: {str(e)}")
     except tg_error.TimedOut as e:
         logger.error(f"Telegram API timeout: {e}", exc_info=True)
         try:
-            await progress_callback("❌ Превышено время ожидания. Попробуйте видео меньшего размера или повторите позже.")
+            await query.message.reply_text("❌ Превышено время ожидания. Попробуйте видео меньшего размера или повторите позже.")
         except:
-            await update.message.reply_text("❌ Превышено время ожидания. Попробуйте видео меньшего размера или повторите позже.")
+            pass
     except tg_error.NetworkError as e:
         logger.error(f"Network error: {e}", exc_info=True)
         try:
-            await progress_callback(f"❌ Ошибка сети: {str(e)}")
+            await query.message.reply_text(f"❌ Ошибка сети: {str(e)}")
         except:
-            await update.message.reply_text(f"❌ Ошибка сети: {str(e)}")
+            pass
     except Exception as e:
         logger.error(f"Error processing video: {e}", exc_info=True)
         try:
-            await progress_callback(f"❌ Ошибка: {str(e)}")
+            await query.message.reply_text(f"❌ Ошибка: {str(e)}")
         except:
-            await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+            pass
 
 
 async def whitelist_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -253,14 +335,30 @@ def main():
 
     if local_api_url:
         logger.info(f"Using local Bot API server: {local_api_url}")
-        # Configure with local Bot API server
+        # Wait for local API server to be ready
+        health_url = f"{local_api_url}/bot{BOT_TOKEN}/getMe"
+        max_retries = 30
+        for attempt in range(1, max_retries + 1):
+            try:
+                import urllib.request
+                resp = urllib.request.urlopen(health_url, timeout=5)
+                if resp.status == 200:
+                    logger.info("Local Bot API server is ready!")
+                    break
+            except Exception:
+                if attempt >= max_retries:
+                    logger.error(f"Local Bot API server not ready after {max_retries} attempts, exiting")
+                    sys.exit(1)
+                logger.info(f"Waiting for local Bot API server... (attempt {attempt}/{max_retries})")
+                time.sleep(2)
+
         request = HTTPXRequest(
             connect_timeout=300,
             read_timeout=300,
             write_timeout=300,
             pool_timeout=300,
         )
-        application = Application.builder().token(BOT_TOKEN).request(request).base_url(local_api_url).get_updates_url(local_api_url).build()
+        application = Application.builder().token(BOT_TOKEN).request(request).base_url(f"{local_api_url}/bot").build()
     else:
         logger.info("Using default Telegram Bot API (50MB file limit)")
         # Default Telegram API - shorter timeouts are fine for smaller files
@@ -280,6 +378,7 @@ def main():
     application.add_handler(CommandHandler("list", whitelist_list))
     application.add_handler(CommandHandler("me", whitelist_me))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CallbackQueryHandler(handle_quality_selection))
 
     logger.info("Bot is running!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)

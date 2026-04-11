@@ -108,6 +108,30 @@ docker-compose up -d
 - **Формат**: только видео MP4
 - Локальный Bot API сервер требует `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`
 
+### YouTube cookies
+
+YouTube может потребовать аутентификацию для скачивания. Если видите ошибку `Sign in to confirm you're not a bot`:
+
+1. **Экспортируйте cookies из браузера** (рекомендуемый способ):
+   ```bash
+   # Chrome:
+   yt-dlp --cookies-from-browser chrome --cookies cookies.txt
+   
+   # Firefox:
+   yt-dlp --cookies-from-browser firefox --cookies cookies.txt
+   ```
+   
+   Или используйте расширение браузера **"Get cookies.txt"** / **"cookies.txt"** — зайдите на YouTube, экспортируйте cookies в формате Netscape и сохраните как `cookies.txt` в корне проекта.
+
+2. **Положите `cookies.txt`** в корень проекта (рядом с `docker-compose.yml`)
+
+3. **Перезапустите бота**:
+   ```bash
+   docker compose up -d --build
+   ```
+
+> **Совет:** Обновляйте cookies каждые 1-2 недели, иначе YouTube снова потребует подтверждение.
+
 ## Архитектура
 
 - **Python 3.11** с `python-telegram-bot` и `yt-dlp`
