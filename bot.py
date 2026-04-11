@@ -197,16 +197,18 @@ async def handle_quality_selection(update: Update, context: ContextTypes.DEFAULT
 
         video_info = await download_manager.download_with_format(video_url, progress_callback, format_str)
 
-        # Send the video file
+        # Replace the progress message with the video
         caption = f"📺 {video_title}"
         with open(video_info.filepath, 'rb') as video_file:
-            await query.message.reply_video(
+            await context.bot.send_video(
+                chat_id=query.message.chat_id,
                 video=video_file,
                 caption=caption,
-                supports_streaming=True
+                supports_streaming=True,
+                reply_to_message_id=query.message.message_id
             )
 
-        await query.message.reply_text("✅ Видео успешно отправлено!")
+        logger.info(f"Video sent successfully: {video_title}")
 
         # Clean up
         download_manager.cleanup(video_info)
