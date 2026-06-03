@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Callable
 
-from youtube import VideoFormat, VideoInfo, VideoDownloader, DOWNLOAD_DIR
+from video_types import VideoFormat, VideoInfo, VideoDownloader, DOWNLOAD_DIR
 
 logger = logging.getLogger(__name__)
 

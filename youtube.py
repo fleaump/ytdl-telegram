@@ -3,42 +3,12 @@ import time
 import asyncio
 import logging
 from pathlib import Path
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import Optional, Callable, List
 import yt_dlp
 
 logger = logging.getLogger(__name__)
 
-# Download directory
-DOWNLOAD_DIR = Path("/tmp/downloads")
-DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-
-@dataclass
-class VideoFormat:
-    """Information about a specific video format"""
-    format_id: str
-    format_note: str
-    ext: str
-    resolution: str
-    filesize: Optional[int] = None
-    vcodec: str = ''
-    acodec: str = ''
-    fps: Optional[float] = None
-    format_str: str = ''  # yt-dlp format string
-
-
-@dataclass
-class VideoInfo:
-    """Information about a downloaded video"""
-    title: str
-    filepath: Path
-    file_size: int
-    duration: Optional[int] = None
-    thumbnail: Optional[str] = None
-    formats: List[VideoFormat] = field(default_factory=list)
-    url: str = ''
+from video_types import DOWNLOAD_DIR, VideoFormat, VideoInfo, VideoDownloader
 
 
 class ProgressHook:
@@ -75,20 +45,6 @@ class ProgressHook:
 
         elif d['status'] == 'finished':
             self.progress_callback("✅ Скачивание завершено!\n📤 Отправляю в Telegram...")
-
-
-class VideoDownloader(ABC):
-    """Base class for video downloaders"""
-
-    @abstractmethod
-    def supports(self, url: str) -> bool:
-        """Check if this downloader supports the given URL"""
-        pass
-
-    @abstractmethod
-    async def download(self, url: str, progress_callback: Callable[[str], None]) -> VideoInfo:
-        """Download video and return info"""
-        pass
 
 
 class YouTubeDownloader(VideoDownloader):
