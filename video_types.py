@@ -27,6 +27,7 @@ class VideoFormat:
 @dataclass
 class VideoInfo:
     title: str
+    description: Optional[str] = None
     filepath: Path
     file_size: int
     duration: Optional[int] = None

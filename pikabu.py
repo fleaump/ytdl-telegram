@@ -42,6 +42,20 @@ class PikabuDownloader(VideoDownloader):
         if title:
             title = re.sub(r"\s*\|\s*Пикабу\s*$", "", title, flags=re.I).strip()
 
+        # Try to extract description from og:description or meta description
+        description = None
+        dm = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']', raw, re.I)
+        if dm:
+            description = html.unescape(dm.group(1)).strip()
+        else:
+            dm = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']', raw, re.I)
+            if dm:
+                description = html.unescape(dm.group(1)).strip()
+
+        # Clean up description suffix if present
+        if description:
+            description = re.sub(r"\s*\|\s*Пикабу\s*$", "", description, flags=re.I).strip()
+
         # Find first <video ...>...</video>
         vm = re.search(r'<video[^>]*>(.*?)</video>', raw, re.I|re.S)
         video_block = vm.group(0) if vm else None
@@ -123,6 +137,7 @@ class PikabuDownloader(VideoDownloader):
 
         return VideoInfo(
             title=title or 'Pikabu Видео',
+            description=description,
             filepath=Path(''),
             file_size=filesize or 0,
             duration=None,

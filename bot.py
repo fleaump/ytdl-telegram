@@ -145,6 +145,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['pending_video'] = {
             'url': video_info.url,
             'title': video_info.title,
+            'description': getattr(video_info, 'description', None),
             'thumbnail': video_info.thumbnail,
             'formats': [(fmt.format_str, fmt.format_note) for fmt in video_info.formats]
         }
@@ -183,6 +184,7 @@ async def handle_quality_selection(update: Update, context: ContextTypes.DEFAULT
     format_str, format_note = video_data['formats'][quality_index]
     video_url = video_data['url']
     video_title = video_data['title']
+    video_description = video_data.get('description') or ''
 
     async def _update_message(content: str):
         """Try to edit message text; if not possible, edit caption."""
@@ -225,7 +227,19 @@ async def handle_quality_selection(update: Update, context: ContextTypes.DEFAULT
         video_info = await download_manager.download_with_format(video_url, progress_callback, format_str)
 
         # Replace the progress message with the video
-        caption = f"📺 {video_title}"
+        # Build caption with description (Telegram caption limit ~1024 chars)
+        prefix = f"📺 {video_title}"
+        max_len = 1024
+        if video_description:
+            # Ensure total caption does not exceed max_len
+            remaining = max_len - len(prefix) - 2
+            if remaining > 0:
+                desc_trimmed = (video_description[:remaining]).rstrip()
+                caption = f"{prefix}\n\n{desc_trimmed}"
+            else:
+                caption = prefix
+        else:
+            caption = prefix
         with open(video_info.filepath, 'rb') as video_file:
             await context.bot.send_video(
                 chat_id=query.message.chat_id,

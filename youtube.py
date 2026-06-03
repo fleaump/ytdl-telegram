@@ -140,6 +140,7 @@ class YouTubeDownloader(VideoDownloader):
             
             return VideoInfo(
                 title=info.get('title', 'Видео'),
+                description=info.get('description'),
                 filepath=Path(''),
                 file_size=0,
                 duration=info.get('duration'),
@@ -184,6 +185,7 @@ class YouTubeDownloader(VideoDownloader):
 
             return VideoInfo(
                 title=info.get('title', 'Видео'),
+                description=info.get('description'),
                 filepath=filepath,
                 file_size=file_size,
                 duration=info.get('duration'),
