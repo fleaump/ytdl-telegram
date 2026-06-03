@@ -300,3 +300,8 @@ class VideoDownloadManager:
 # Default manager with YouTube downloader pre-registered
 download_manager = VideoDownloadManager()
 download_manager.register(YouTubeDownloader())
+try:
+    from pikabu import PikabuDownloader
+    download_manager.register(PikabuDownloader())
+except Exception as e:
+    logger.warning(f"Failed to register PikabuDownloader: {e}")

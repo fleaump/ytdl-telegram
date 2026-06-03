@@ -124,23 +124,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Callback data: format_index
             # We'll store video info in context.user_data
             callback_data = f"quality_{len(keyboard)}"
-            
             keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
+
+        # Send preview photo if thumbnail available, otherwise send text with options
+        if video_info.thumbnail:
+            await update.message.reply_photo(
+                photo=video_info.thumbnail,
+                caption=f"📺 *{video_info.title}*\n\nВыберите качество видео:",
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            await update.message.reply_text(
+                f"📺 *{video_info.title}*\n\nВыберите качество видео:",
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
 
         # Store video info for later use
         context.user_data['pending_video'] = {
             'url': video_info.url,
             'title': video_info.title,
+            'thumbnail': video_info.thumbnail,
             'formats': [(fmt.format_str, fmt.format_note) for fmt in video_info.formats]
         }
-
-        # Send message with quality options
-        await update.message.reply_text(
-            f"📺 *{video_info.title}*\n\n"
-            f"Выберите качество видео:",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
 
     except ValueError as e:
         await status_msg.edit_text(f"❌ Ошибка: {str(e)}")
