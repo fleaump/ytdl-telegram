@@ -26,7 +26,42 @@ class PikabuDownloader(VideoDownloader):
 
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = resp.read().decode('utf-8', errors='ignore')
+            raw_bytes = resp.read()
+
+        # Detect charset: try HTTP header, then <meta charset=>, then meta content-type
+        encoding = None
+        try:
+            ctype = resp.headers.get('Content-Type') if hasattr(resp, 'headers') else None
+        except Exception:
+            ctype = None
+        if ctype:
+            m_ct = re.search(r'charset=([^\s;]+)', ctype, re.I)
+            if m_ct:
+                encoding = m_ct.group(1).strip(' "\'')
+
+        if not encoding:
+            m = re.search(br"<meta[^>]+charset=[\"']?([^\"'>\s/]+)", raw_bytes, re.I)
+            if m:
+                try:
+                    encoding = m.group(1).decode('ascii', errors='ignore')
+                except Exception:
+                    encoding = None
+
+        if not encoding:
+            m = re.search(br'<meta[^>]+content=[\"\']([^\"\']*charset=([^\"\']+)[^\"\']*)[\"\']', raw_bytes, re.I)
+            if m:
+                try:
+                    encoding = m.group(2).decode('ascii', errors='ignore')
+                except Exception:
+                    encoding = None
+
+        if encoding:
+            encoding = encoding.lower().replace('windows-1251', 'cp1251')
+
+        try:
+            raw = raw_bytes.decode(encoding or 'utf-8', errors='replace')
+        except Exception:
+            raw = raw_bytes.decode('utf-8', errors='ignore')
 
         # Try to extract a title: prefer <title> tag, fallback to og:title meta
         title = None
@@ -162,7 +197,42 @@ class PikabuDownloader(VideoDownloader):
             # Parse the story page to find mp4
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=15) as resp:
-                raw = resp.read().decode('utf-8', errors='ignore')
+                raw_bytes = resp.read()
+
+            # detect encoding as above
+            encoding = None
+            try:
+                ctype = resp.headers.get('Content-Type') if hasattr(resp, 'headers') else None
+            except Exception:
+                ctype = None
+            if ctype:
+                m_ct = re.search(r'charset=([^\s;]+)', ctype, re.I)
+                if m_ct:
+                    encoding = m_ct.group(1).strip(' "\'')
+
+            if not encoding:
+                m = re.search(br"<meta[^>]+charset=[\"']?([^\"'>\s/]+)", raw_bytes, re.I)
+                if m:
+                    try:
+                        encoding = m.group(1).decode('ascii', errors='ignore')
+                    except Exception:
+                        encoding = None
+
+            if not encoding:
+                m = re.search(br'<meta[^>]+content=[\"\']([^\"\']*charset=([^\"\']+)[^\"\']*)[\"\']', raw_bytes, re.I)
+                if m:
+                    try:
+                        encoding = m.group(2).decode('ascii', errors='ignore')
+                    except Exception:
+                        encoding = None
+
+            if encoding:
+                encoding = encoding.lower().replace('windows-1251', 'cp1251')
+
+            try:
+                raw = raw_bytes.decode(encoding or 'utf-8', errors='replace')
+            except Exception:
+                raw = raw_bytes.decode('utf-8', errors='ignore')
 
             sm = re.search(r'<video[^>]*>(.*?)</video>', raw, re.I|re.S)
             video_block = sm.group(0) if sm else None

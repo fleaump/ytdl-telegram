@@ -138,9 +138,20 @@ class YouTubeDownloader(VideoDownloader):
             
             formats = self._extract_formats(info)
             
+            # Build a short description (first non-empty line, truncated)
+            raw_desc = info.get('description') or ''
+            short_desc = None
+            if raw_desc:
+                lines = [ln.strip() for ln in raw_desc.splitlines() if ln.strip()]
+                first = lines[0] if lines else raw_desc.strip()
+                if len(first) > 300:
+                    short_desc = first[:297].rstrip() + '...'
+                else:
+                    short_desc = first
+
             return VideoInfo(
                 title=info.get('title', 'Видео'),
-                description=info.get('description'),
+                description=short_desc,
                 filepath=Path(''),
                 file_size=0,
                 duration=info.get('duration'),
@@ -185,7 +196,7 @@ class YouTubeDownloader(VideoDownloader):
 
             return VideoInfo(
                 title=info.get('title', 'Видео'),
-                description=info.get('description'),
+                description=(lambda d: (d[:297].rstrip() + '...') if d and len(d) > 300 else d)(info.get('description') or None),
                 filepath=filepath,
                 file_size=file_size,
                 duration=info.get('duration'),
