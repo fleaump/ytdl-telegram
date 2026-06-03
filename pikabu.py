@@ -28,15 +28,19 @@ class PikabuDownloader(VideoDownloader):
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read().decode('utf-8', errors='ignore')
 
-        # Try to extract a title
+        # Try to extract a title: prefer <title> tag, fallback to og:title meta
         title = None
-        m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', raw, re.I)
+        m = re.search(r'<title>(.*?)</title>', raw, re.I|re.S)
         if m:
-            title = html.unescape(m.group(1))
+            title = html.unescape(m.group(1).strip())
         else:
-            m = re.search(r'<title>(.*?)</title>', raw, re.I|re.S)
+            m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', raw, re.I)
             if m:
-                title = html.unescape(m.group(1).strip())
+                title = html.unescape(m.group(1))
+
+        # If title ends with "| Пикабу" (possibly with spaces), remove that suffix
+        if title:
+            title = re.sub(r"\s*\|\s*Пикабу\s*$", "", title, flags=re.I).strip()
 
         # Find first <video ...>...</video>
         vm = re.search(r'<video[^>]*>(.*?)</video>', raw, re.I|re.S)
