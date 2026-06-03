@@ -184,17 +184,37 @@ async def handle_quality_selection(update: Update, context: ContextTypes.DEFAULT
     video_url = video_data['url']
     video_title = video_data['title']
 
-    # Update message to show downloading progress
-    await query.edit_message_text(f"📥 Скачиваю видео в качестве {format_note}...\n\n📺 {video_title}")
-
-    async def progress_callback(message: str):
-        """Update progress message"""
+    async def _update_message(content: str):
+        """Try to edit message text; if not possible, edit caption."""
         try:
             await context.bot.edit_message_text(
                 chat_id=query.message.chat_id,
                 message_id=query.message.message_id,
-                text=message
+                text=content
             )
+        except tg_error.BadRequest as e:
+            # If message has no text (e.g. it's a photo), try editing caption instead
+            if 'There is no text in the message to edit' in str(e) or 'MESSAGE_NOT_MODIFIED' in str(e):
+                try:
+                    await context.bot.edit_message_caption(
+                        chat_id=query.message.chat_id,
+                        message_id=query.message.message_id,
+                        caption=content
+                    )
+                except Exception as e2:
+                    logger.warning(f"Failed to update caption: {e2}")
+            else:
+                logger.warning(f"Failed to update message text: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to update message: {e}")
+
+    # Update message to show downloading progress (text or caption)
+    await _update_message(f"📥 Скачиваю видео в качестве {format_note}...\n\n📺 {video_title}")
+
+    async def progress_callback(message: str):
+        """Update progress message"""
+        try:
+            await _update_message(message)
         except Exception as e:
             logger.warning(f"Failed to update progress: {e}")
 
