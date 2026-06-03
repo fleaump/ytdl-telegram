@@ -27,9 +27,9 @@ class VideoFormat:
 @dataclass
 class VideoInfo:
     title: str
-    description: Optional[str] = None
     filepath: Path
     file_size: int
+    description: Optional[str] = None
     duration: Optional[int] = None
     thumbnail: Optional[str] = None
     formats: List[VideoFormat] = field(default_factory=list)
